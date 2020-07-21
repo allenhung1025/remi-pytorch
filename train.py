@@ -8,9 +8,9 @@ from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 from tensorboardX import  SummaryWriter
 import os
-####################################################################################################
-#######       reference: https://github.com/soobinseo/Transformer-TTS/blob/master/train_transformer.py        #########
-####################################################################################################
+######################################################################################################
+#######       reference: https://github.com/soobinseo/Transformer-TTS/blob/master/train_transformer.py
+######################################################################################################
 # adjust_learning_rate is very effectivein training transformer. The training loss is decreasing stably
 def adjust_learning_rate(optimizer, step_num, lr, warmup_step=4000):
     lr = lr * warmup_step**0.5 * min(step_num * warmup_step**-1.5, step_num**-0.5)

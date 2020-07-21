@@ -3,6 +3,9 @@ import torch.nn as nn
 from utils import *
 import numpy as np
 from module import TransformerModel
+################################################
+# reference: https://github.com/YatingMusic/remi
+################################################
 device = torch.device("cuda:1")
 ########################################
 # temperature sampling
@@ -33,7 +36,7 @@ def generate(n_target_bar, output_path, prompt=None):
     if prompt:
         events = preprocess.extract_events(prompt)
         words = [[preprocess.event2word['{}_{}'.format(e.name, e.value)] for e in events]]
-        words[0].append(preprocess.event2word['Bar_None'])
+        words[0].append(preprocess.event2word['Bar_None'])        
     else:
         words = []
         for _ in range(1):
@@ -53,58 +56,60 @@ def generate(n_target_bar, output_path, prompt=None):
                 ws.append(preprocess.event2word['Position_1/16'])
                 ws.append(np.random.choice(tempo_classes))
                 ws.append(np.random.choice(tempo_values))
-            words.append(ws)
-        # initialize the model
-        ntoken = len(preprocess.event2word)
-        embsize = 300
-        nhead = 4
-        nlayers = 12 
-        nhid = 512
-        model = TransformerModel(ntoken, embsize, nhead, nlayers, nhid).to(device)
-        # load the model
-        checkpoint = torch.load(checkpoint_path)
-        model.load_state_dict(checkpoint['model_state_dict'])
-        model.eval()
-        # inference the remaing sequences from the prompt and the model
-        original_length = len(words[0])
-        initial_flag = 1
-        current_generated_bar = 0
-        #words = torch.LongTensor(words).to(device)
-        #words = words.transpose(0, 1) # [[seqlen, 1]], the first Bar
-        #output = model(words)
-        #next_token = output[-1, :]
-        #next_token = torch.argmax(next_token).item()
-        temperature = 1.2
-        topk = 5
-        with torch.no_grad():
-            words = torch.LongTensor(words).to(device)
-            words = words.transpose(0, 1) # [[seqlen, 1]], the first Bar
-            while current_generated_bar < n_target_bar:
-                output = model(words)
-                logits = output[-1, :].detach().cpu()
-                logits  = logits.squeeze(0)
-                next_token = temperature_sampling(
-                    logits  = logits,
-                    temperature = temperature,
-                    topk = topk
-                )
-                next_token = torch.tensor([[next_token]]).to(device)
-                words = torch.cat((words, next_token), dim=0)
-                if next_token == preprocess.event2word['Bar_None']:
-                    current_generated_bar += 1
-        word_list = words.squeeze(1).tolist()
-        # write
-        if prompt:
-            write_midi(
-                words=word_list[original_length:],
-                word2event=preprocess.word2event,
-                output_path=output_path,
-                prompt_path=prompt)
-        else:
-            write_midi(
-                words=word_list,
-                word2event=preprocess.word2event,
-                output_path=output_path,
-                prompt_path=None)
-        #import pdb; pdb.set_trace()
-generate(16,  './hello.midi', None)
+            words.append(ws)        
+    # initialize the model
+    ntoken = len(preprocess.event2word)
+    embsize = 300
+    nhead = 4
+    nlayers = 12 
+    nhid = 512
+    model = TransformerModel(ntoken, embsize, nhead, nlayers, nhid).to(device)
+    # load the model
+    checkpoint = torch.load(checkpoint_path)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    model.eval()
+
+    # inference the remaing sequences from the prompt and the model
+    original_length = len(words[0])
+    initial_flag = 1
+    current_generated_bar = 0
+    #words = torch.LongTensor(words).to(device)
+    #words = words.transpose(0, 1) # [[seqlen, 1]], the first Bar
+    #output = model(words)
+    #next_token = output[-1, :]
+    #next_token = torch.argmax(next_token).item()
+    temperature = 1.2
+    topk = 5
+    with torch.no_grad():
+        words = torch.LongTensor(words).to(device)
+        words = words.transpose(0, 1) # [[seqlen, 1]], the first Bar
+        while current_generated_bar < n_target_bar:
+            output = model(words)
+            logits = output[-1, :].detach().cpu()
+            logits  = logits.squeeze(0)
+            next_token = temperature_sampling(
+                logits  = logits,
+                temperature = temperature,
+                topk = topk
+            )
+            next_token = torch.tensor([[next_token]]).to(device)
+            words = torch.cat((words, next_token), dim=0)
+            if next_token == preprocess.event2word['Bar_None']:
+                current_generated_bar += 1
+    word_list = words.squeeze(1).tolist()
+    # write
+    if prompt:
+        write_midi(
+            words=word_list[original_length:],
+            word2event=preprocess.word2event,
+            output_path=output_path,
+            prompt_path=prompt)
+    else:
+        write_midi(
+            words=word_list,
+            word2event=preprocess.word2event,
+            output_path=output_path,
+            prompt_path=None)
+if __name__ == "__main__":
+    generate(16,  './hello.midi', None)
+    generate(16, './continuation.midi', './data/evaluation/000.midi')
